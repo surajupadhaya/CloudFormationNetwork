@@ -74,6 +74,7 @@ myRouteTable:
         PredefinedMetricSpecification:
           PredefinedMetricType: ASGAverageCPUUtilization
         TargetValue:  50
+4. NONAlphanumeric Reource Name are not Supported.
 
-4. Always check aws cloudformation Documentations for resource and attributes
+5. Always check aws cloudformation Documentations for resource and attributes
 
