@@ -1,0 +1,97 @@
+---
+Parameters:
+  EnvType:
+    Description: Environment type.
+    Default: test
+    Type: String
+    AllowedValues:
+      - prod
+      - test
+    ConstraintDescription: must specify prod or test.
+Conditions:
+  CreateProdResources: !Equals
+    - !Ref EnvType
+    - prod
+Resources:
+  MyInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: us-east-1a
+      ImageId: ami-a4c7edb2 #YourPreferedImage
+      InstanceType: t2.micro #YourPreferedInstancesType
+      SecurityGroupIds:
+        - !GetAtt SSHSecurityGroup.GroupId
+      SubnetId: !Ref Subnet1
+      KeyName: 'mupair'
+  MyVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+  VPCInternetAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref MyVPC
+      InternetGatewayId: !Ref InternetGateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  myRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: MyVPC
+  Myroute:
+    Type: AWS::EC2::Route
+
+    Properties:
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+      RouteTableId: !Ref myRouteTable
+  SubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet1
+      RouteTableId: !Ref  myRouteTable
+
+  Subnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: us-east-1a
+      CidrBlock: "10.0.0.128/24"
+      VpcId: !Ref MyVPC
+      MapPublicIpOnLaunch: true
+  SSHSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0 #YourPreferedIP_address
+        FromPort: 22
+        IpProtocol: tcp
+        ToPort: 22
+      VpcId: !Ref MyVPC
+
+
+  Scaling:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Condition: CreateProdResources
+    Properties:
+      AvailabilityZones:
+        - 'us-east-1a'
+      InstanceId: !Ref MyInstance
+      MaxSize: '5'
+      MinSize: '1'
+      DesiredCapacity: '2'
+      MetricsCollection:
+        - Granularity: 1Minute
+
+  ScalingPolicy:
+    Type: AWS::AutoScaling::ScalingPolicy
+    Properties:
+      AutoScalingGroupName: !Ref Scaling
+      PolicyType: 'TargetTrackingScaling'
+      TargetTrackingConfiguration:
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
+        TargetValue:  50
+
